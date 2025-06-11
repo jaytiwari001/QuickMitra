@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Retirement Calculator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --primary: #0a4d68;
+      --secondary: #088395;
+      --accent: #05bfdb;
+      --light: #f7f9fb;
+      --radius: 8px;
+    }
+    body {
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      background: #fff;
+      color: #333;
+    }
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      padding: 30px 20px;
+    }
+    h1 {
+      color: var(--primary);
+      text-align: center;
+    }
+    label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 5px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    input, select {
+      padding: 10px;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+    }
+    input[type="range"] {
+      width: 100%;
+    }
+    .slider-value {
+      font-weight: bold;
+      color: var(--secondary);
+    }
+    .flex {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    .investment-row {
+      background: #f1f1f1;
+      padding: 15px;
+      border-radius: var(--radius);
+      margin-bottom: 15px;
+    }
+    .btn {
+      background: var(--secondary);
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .btn:hover {
+      background: var(--accent);
+    }
+    .results, .chart-box {
+      margin-top: 30px;
+      background: var(--light);
+      padding: 20px;
+      border-radius: var(--radius);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+    .tooltip {
+      font-size: 0.85em;
+      color: #666;
+    }
+    canvas {
+      max-width: 100%;
+    }
+    input[type="range"]#ageRangeMin,
+    input[type="range"]#ageRangeMax {
+      position: absolute;
+      width: 80%;
+      pointer-events: none;
+      background: transparent;
+    }
+    input[type="range"]#ageRangeMin {
+      pointer-events: auto;
+      z-index: 2;
+    }
+    input[type="range"]#ageRangeMax {
+      pointer-events: auto;
+      z-index: 1;
+    }
+    .flex[style*="align-items: center;"] {
+      position: relative;
+      height: 40px;
+    }
+    .age-range-bar {
+      margin-top: 0;
+      margin-bottom: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+    .investment-row input.investment-age-input {
+      background: #f0f4f8;
+      color: #888;
+      font-style: italic;
+      border: 1px solid #d0d7de;
+    }
+    .investment-row input.investment-interest-input {
+      background: #f0f4f8;
+      color: #888;
+      font-style: italic;
+      border: 1px solid #d0d7de;
+    }
+    .investment-row input.investment-onetime-input {
+      background: #f0f4f8;
+      color: #888;
+      font-style: italic;
+      border: 1px solid #d0d7de;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Smart Retirement Calculator</h1>
+
+    <div class="form-group">
+      <label style="display: block; margin-bottom: 10px;">Set Your Working Age Range</label>
+      <div style="margin-bottom: 6px; font-weight: 600;">Age</div>
+      <div class="flex age-range-bar" style="position: relative; height: 50px; margin-bottom: 0;">
+        <input type="range" id="ageRangeMin" min="20" max="70" value="30" oninput="updateAgeRange()">
+        <input type="range" id="ageRangeMax" min="20" max="70" value="55" oninput="updateAgeRange()">
+      </div>
+      <div id="ageRangeValContainer" style="margin-top: 18px; font-weight: bold; color: var(--secondary);">
+        <span id="ageRangeVal">30 - 55</span> years
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Monthly Income (₹)</label>
+      <input type="range" id="monthlyIncome" min="10000" max="500000" step="1000" value="100000" oninput="updateSlider('monthlyIncome', 'incomeVal')">
+      <div class="slider-value">₹<span id="incomeVal">100000</span></div>
+    </div>
+
+    <div class="form-group">
+      <label>Monthly Expenses (add multiple)</label>
+      <div id="expenseContainer">
+        <div class="flex">
+          <input type="text" placeholder="Expense Name" value="Personal Expense" />
+          <input type="number" placeholder="Amount (₹)" id="personalExpenseInput" />
+        </div>
+      </div>
+      <button class="btn" onclick="addExpenseRow()">+ Add Expense</button>
+    </div>
+
+    <div class="form-group flex">
+      <div style="flex: 1;">
+        <label>Annual Income Growth %</label>
+        <input type="range" id="incomeGrowth" min="0" max="20" step="0.1" value="8" oninput="document.getElementById('incomeGrowthVal').textContent = this.value" />
+        <span class="slider-value" id="incomeGrowthVal">8</span>%
+      </div>
+      <div style="flex: 1;">
+        <label>Annual Investment Increase %</label>
+        <input type="range" id="investmentGrowth" min="0" max="20" step="0.1" value="10" oninput="document.getElementById('investmentGrowthVal').textContent = this.value" />
+        <span class="slider-value" id="investmentGrowthVal">10</span>%
+      </div>
+    </div>
+
+    <hr/>
+    <div class="form-group">
+      <label>Investments</label>
+      <div id="investmentContainer"></div>
+      <button class="btn" onclick="addInvestmentRow()">+ Add Investment</button>
+    </div>
+    <button class="btn" onclick="calculateProjection()">Calculate Retirement Plan</button>
+
+    <div class="results" id="resultsBox"></div>
+
+    <div class="chart-box">
+      <canvas id="investmentPieChart"></canvas>
+    </div>
+
+    <div class="results">
+      <h3>Timeline Visualization (Placeholder)</h3>
+      <p>This section will later include a horizontal timeline showing income, investments, and key obligations (e.g., land purchase, LIC maturity).</p>
+    </div>
+
+  </div> <!-- End container -->
+
+  <script>
+    function updateSlider(id, outputId) {
+      document.getElementById(outputId).textContent = document.getElementById(id).value;
+      if (id === 'monthlyIncome') setPersonalExpense();
+    }
+
+    function addExpenseRow() {
+      const container = document.getElementById("expenseContainer");
+      const row = document.createElement("div");
+      row.className = "flex";
+      row.innerHTML = `
+        <input type="text" placeholder="Expense Name" />
+        <input type="number" placeholder="Amount (₹)" />
+      `;
+      container.appendChild(row);
+    }
+
+    function addInvestmentRow() {
+      const currentAge = parseInt(document.getElementById("ageRangeMin").value);
+      const retireAge = parseInt(document.getElementById("ageRangeMax").value);
+      const container = document.getElementById("investmentContainer");
+      const div = document.createElement("div");
+      div.className = "investment-row";
+      div.innerHTML = `
+        <input type="text" placeholder="Type (Mutual Fund, NPS, FD, etc.)" oninput="handleLoanTypeInput(this)" />
+        <input type="number" placeholder="Monthly SIP (₹)" />
+        <input type="number" placeholder="One-time Investment (₹)" class="investment-onetime-input" />
+        <input type="number" placeholder="Expected Annual Return (%)" value="9" class="investment-interest-input" />
+        <div class="flex">
+          <input type="number" placeholder="Start Age" value="${currentAge}" class="investment-age-input" />
+          <input type="number" placeholder="SIP End Age" value="${retireAge}" class="investment-age-input" />
+          <input type="number" placeholder="Loan End Age" value="${retireAge}" class="investment-age-input loan-end-age" style="display:none; margin-left:8px;" />
+        </div>
+      `;
+      container.appendChild(div);
+    }
+
+    // Show/hide Loan End Age field based on type input
+    function handleLoanTypeInput(typeInput) {
+      const typeVal = typeInput.value.toLowerCase();
+      const flexDiv = typeInput.parentElement.querySelector('.flex') || typeInput.parentElement.parentElement.querySelector('.flex');
+      if (!flexDiv) return;
+      const loanEndInput = flexDiv.querySelector('.loan-end-age');
+      if (!loanEndInput) return;
+      if (typeVal.includes('loan')) {
+        loanEndInput.style.display = '';
+      } else {
+        loanEndInput.style.display = 'none';
+      }
+    }
+
+    function calculateProjection() {
+      const currentAge = parseInt(document.getElementById("ageRangeMin").value);
+      const retireAge = parseInt(document.getElementById("ageRangeMax").value);
+      const workingYears = retireAge - currentAge;
+
+      const monthlyIncome = parseFloat(document.getElementById("monthlyIncome").value);
+      const incomeGrowth = parseFloat(document.getElementById("incomeGrowth").value) / 100;
+      const investmentGrowth = parseFloat(document.getElementById("investmentGrowth").value) / 100;
+
+      let totalExpenses = 0;
+      document.querySelectorAll("#expenseContainer .flex").forEach(row => {
+        const val = parseFloat(row.children[1].value);
+        if (!isNaN(val)) totalExpenses += val;
+      });
+
+      let availableForInvest = monthlyIncome - totalExpenses;
+      let totalCorpus = 0;
+      let labels = [];
+      let data = [];
+
+      let investmentRows = document.querySelectorAll(".investment-row");
+      let yearByYear = [];
+      let investmentTypes = [];
+      let investmentTypeMap = new Map();
+      let otherCount = 1;
+      // Assign unique type for each investment row
+      investmentRows.forEach((row, idx) => {
+        let type = row.children[0].value.trim();
+        if (!type) {
+          type = `Other ${otherCount++}`;
+        }
+        investmentTypeMap.set(row, type);
+        if (!investmentTypes.includes(type)) investmentTypes.push(type);
+      });
+      if (investmentRows.length === 0) {
+        // No investments provided, show all available as Savings Account
+        let savingsTotal = 0;
+        for (let i = 0; i < workingYears; i++) {
+          savingsTotal += availableForInvest * 12;
+          yearByYear.push({ age: currentAge + i + 1, investments: {}, savings: savingsTotal, total: savingsTotal });
+        }
+        totalCorpus = savingsTotal;
+        labels.push('Savings Account');
+        data.push(savingsTotal.toFixed(0));
+      } else {
+        // For each year, sum up all investments' FV till that year
+        for (let i = 0; i < workingYears; i++) {
+          let yearCorpus = 0;
+          let yearInvestments = {};
+          investmentTypes.forEach(type => { yearInvestments[type] = 0; });
+          investmentRows.forEach(row => {
+            const type = investmentTypeMap.get(row);
+            const sip = parseFloat(row.children[1].value) || 0;
+            const oneTime = parseFloat(row.children[2].value) || 0;
+            const rate = (parseFloat(row.children[3].value) || 0) / 100;
+            const startAge = parseInt(row.children[4].children[0].value) || currentAge;
+            const endAge = parseInt(row.children[4].children[1].value) || retireAge;
+            const flexDiv = row.querySelector('.flex');
+            let loanEndAge = null;
+            if (flexDiv) {
+              const loanEndInput = flexDiv.querySelector('.loan-end-age');
+              if (loanEndInput && loanEndInput.style.display !== 'none') {
+                loanEndAge = parseInt(loanEndInput.value) || retireAge;
+              }
+            }
+            const duration = endAge - startAge;
+            const year = currentAge + i + 1;
+            if (year < startAge + 1 || year > endAge) return;
+            // If this is a loan, treat SIP as negative cash flow until loan end age
+            if (type.toLowerCase().includes('loan')) {
+              if (loanEndAge && year <= loanEndAge) {
+                // Subtract loan SIP from savings for this year
+                yearInvestments[type] -= sip * 12;
+              }
+              // No corpus accumulation for loan
+            } else {
+              // One-time investment FV till this year
+              let oneTimeFV = oneTime * Math.pow(1 + rate, year - startAge);
+              // SIP FV till this year
+              let sipFV = 0;
+              let sipAmount = sip;
+              for (let j = 0; j < year - startAge; j++) {
+                sipFV += sipAmount * 12 * Math.pow(1 + rate, (year - startAge) - j);
+                sipAmount *= (1 + investmentGrowth);
+              }
+              yearInvestments[type] += oneTimeFV + sipFV;
+            }
+          });
+          // Calculate savings for this year: total available - total invested (including loan payments)
+          let totalInvested = 0;
+          for (let t of investmentTypes) {
+            totalInvested += yearInvestments[t];
+          }
+          let savings = (availableForInvest * 12 * (i + 1)) + totalInvested; // totalInvested may be negative for loans
+          let total = 0;
+          for (let t of investmentTypes) total += yearInvestments[t];
+          total += savings;
+          yearByYear.push({ age: currentAge + i + 1, investments: yearInvestments, savings: savings, total: total });
+        }
+        // Final corpus for pie chart
+        investmentRows.forEach(row => {
+          const type = investmentTypeMap.get(row);
+          const sip = parseFloat(row.children[1].value) || 0;
+          const oneTime = parseFloat(row.children[2].value) || 0;
+          const rate = (parseFloat(row.children[3].value) || 0) / 100;
+          const startAge = parseInt(row.children[4].children[0].value) || currentAge;
+          const endAge = parseInt(row.children[4].children[1].value) || retireAge;
+          const duration = endAge - startAge;
+
+          let futureValue = oneTime * Math.pow(1 + rate, duration);
+          let sipFV = 0;
+          let sipAmount = sip;
+
+          for (let i = 0; i < duration; i++) {
+            sipFV += sipAmount * 12 * Math.pow(1 + rate, duration - i);
+            sipAmount *= (1 + investmentGrowth);
+          }
+
+          const total = futureValue + sipFV;
+          totalCorpus += total;
+          labels.push(type);
+          data.push(total.toFixed(0));
+        });
+      }
+
+      const resultsBox = document.getElementById("resultsBox");
+      resultsBox.innerHTML = `
+        <h3>Retirement Projection</h3>
+        <p>Age: <strong>${currentAge}</strong> to <strong>${retireAge}</strong> (${workingYears} years)</p>
+        <p>Monthly Income: ₹<strong>${monthlyIncome.toLocaleString()}</strong></p>
+        <p>Total Monthly Expenses: ₹<strong>${totalExpenses.toLocaleString()}</strong></p>
+        <p>Monthly Investable Amount: ₹<strong>${availableForInvest.toLocaleString()}</strong></p>
+        <p><strong>Projected Corpus at Retirement: ₹${totalCorpus.toLocaleString()}</strong></p>
+      `;
+
+      // Add enhanced year-by-year projection table
+      let tableHtml = `<h4>Year-by-Year Projection</h4><table style='width:100%;border-collapse:collapse;margin-top:10px;'><tr><th style='text-align:left;padding:4px 8px;border-bottom:1px solid #ccc;'>Age</th><th style='text-align:right;padding:4px 8px;border-bottom:1px solid #ccc;'>Total Income</th>`;
+      investmentTypes.forEach(type => {
+        tableHtml += `<th style='text-align:right;padding:4px 8px;border-bottom:1px solid #ccc;'>${type}</th>`;
+      });
+      tableHtml += `<th style='text-align:right;padding:4px 8px;border-bottom:1px solid #ccc;'>Total Expenses</th>`;
+      tableHtml += `<th style='text-align:right;padding:4px 8px;border-bottom:1px solid #ccc;'>Savings Account</th><th style='text-align:right;padding:4px 8px;border-bottom:1px solid #ccc;'>Total</th><th style='text-align:left;padding:4px 8px;border-bottom:1px solid #ccc;'>Remark</th></tr>`;
+      let personalExpense = 0;
+      let personalExpenseInput = document.getElementById('personalExpenseInput');
+      if (personalExpenseInput) {
+        personalExpense = parseFloat(personalExpenseInput.value) || 0;
+      }
+      let expenseRows = document.querySelectorAll("#expenseContainer .flex");
+      let otherExpenses = 0;
+      expenseRows.forEach((rowExp, i) => {
+        if (i === 0) return; // skip personal expense row
+        const val = parseFloat(rowExp.children[1].value);
+        if (!isNaN(val)) otherExpenses += val;
+      });
+      let monthlyIncomeStart = parseFloat(document.getElementById("monthlyIncome").value);
+      yearByYear.forEach((row, idx) => {
+        // Calculate income for this year (with growth)
+        let incomeThisYear = monthlyIncomeStart * Math.pow(1 + (parseFloat(document.getElementById('incomeGrowth').value) / 100), idx) * 12;
+        // Calculate personal expense for this year
+        let personalExpenseThisYear = personalExpense * Math.pow(1.06, idx);
+        let baseExpenses = personalExpenseThisYear + otherExpenses;
+        let totalExp = baseExpenses * 12;
+        // Calculate loan SIPs for this year
+        let loanSIPs = 0;
+        investmentRows.forEach(rowInv => {
+          const type = investmentTypeMap.get(rowInv);
+          if (type.toLowerCase().includes('loan')) {
+            const sip = parseFloat(rowInv.children[1].value) || 0;
+            const flexDiv = rowInv.querySelector('.flex');
+            let loanEndAge = null;
+            if (flexDiv) {
+              const loanEndInput = flexDiv.querySelector('.loan-end-age');
+              if (loanEndInput && loanEndInput.style.display !== 'none') {
+                loanEndAge = parseInt(loanEndInput.value) || retireAge;
+              }
+            }
+            const startAge = parseInt(rowInv.children[4].children[0].value) || currentAge;
+            const year = currentAge + idx + 1;
+            if (loanEndAge && year >= startAge + 1 && year <= loanEndAge) {
+              loanSIPs += sip * 12;
+            }
+          }
+        });
+        let totalExpensesThisYear = totalExp + loanSIPs;
+        // Calculate total investments for this year (sum of all non-loan investments)
+        let totalInvestmentsThisYear = 0;
+        let investmentTypeToValue = {};
+        investmentTypes.forEach(type => { investmentTypeToValue[type] = 0; });
+        investmentRows.forEach(rowInv => {
+          const type = investmentTypeMap.get(rowInv);
+          if (!type.toLowerCase().includes('loan')) {
+            const sip = parseFloat(rowInv.children[1].value) || 0;
+            const oneTime = parseFloat(rowInv.children[2].value) || 0;
+            const rate = (parseFloat(rowInv.children[3].value) || 0) / 100;
+            const startAge = parseInt(rowInv.children[4].children[0].value) || currentAge;
+            const endAge = parseInt(rowInv.children[4].children[1].value) || retireAge;
+            const year = currentAge + idx + 1;
+            if (year < startAge + 1 || year > endAge) return;
+            // One-time investment FV till this year
+            let oneTimeFV = oneTime * Math.pow(1 + rate, year - startAge);
+            // SIP FV till this year
+            let sipFV = 0;
+            let sipAmount = sip;
+            for (let j = 0; j < year - startAge; j++) {
+              sipFV += sipAmount * 12 * Math.pow(1 + rate, (year - startAge) - j);
+              sipAmount *= (1 + investmentGrowth);
+            }
+            investmentTypeToValue[type] += oneTimeFV + sipFV;
+            totalInvestmentsThisYear += sip * 12;
+          }
+        });
+        // If income < expenses + investments, reduce investments
+        let investRoom = incomeThisYear - totalExpensesThisYear;
+        let remark = '';
+        let highlight = '';
+        if (investRoom < totalInvestmentsThisYear) {
+          // Scale down all investments proportionally
+          let scale = investRoom > 0 && totalInvestmentsThisYear > 0 ? investRoom / totalInvestmentsThisYear : 0;
+          Object.keys(investmentTypeToValue).forEach(type => {
+            investmentTypeToValue[type] = Math.round(investmentTypeToValue[type] * scale);
+          });
+          remark = 'Investments reduced to fit income';
+          highlight = 'background: #fff8c6;';
+        }
+        tableHtml += `<tr style='${highlight}'>`;
+        tableHtml += `<td style='padding:4px 8px;'>${row.age}</td>`;
+        tableHtml += `<td style='padding:4px 8px;text-align:right;'>${formatINR(incomeThisYear)}</td>`;
+        investmentTypes.forEach(type => {
+          tableHtml += `<td style='padding:4px 8px;text-align:right;'>${formatINR(investmentTypeToValue[type]||0)}</td>`;
+        });
+        let totalExpDisplay = totalExpensesThisYear > 0 ? '-' + formatINR(totalExpensesThisYear) : formatINR(totalExpensesThisYear);
+        tableHtml += `<td style='padding:4px 8px;text-align:right; color:#c00;'>${totalExpDisplay}</td>`;
+        // Calculate savings for this year: income - expenses - investments
+        let savings = investRoom > 0 ? investRoom : 0;
+        tableHtml += `<td style='padding:4px 8px;text-align:right;'>${formatINR(savings)}</td>`;
+        // Calculate total corpus for this year
+        let total = 0;
+        Object.keys(investmentTypeToValue).forEach(type => { total += investmentTypeToValue[type]; });
+        total += savings;
+        tableHtml += `<td style='padding:4px 8px;text-align:right;'>${formatINR(total)}</td>`;
+        tableHtml += `<td style='padding:4px 8px;'>${remark}</td></tr>`;
+      });
+      tableHtml += `</table>`;
+      resultsBox.innerHTML += tableHtml;
+
+      updatePieChart(labels, data);
+    }
+
+    let pieChart;
+    function updatePieChart(labels, data) {
+      const ctx = document.getElementById("investmentPieChart").getContext("2d");
+      if (pieChart) pieChart.destroy();
+      pieChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Investment Split',
+            data: data,
+            backgroundColor: ['#0a4d68', '#088395', '#05bfdb', '#ff6f61', '#ffcc00', '#6a1b9a'],
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom',
+            }
+          }
+        }
+      });
+    }
+
+    function updateAgeRange() {
+      let min = parseInt(document.getElementById('ageRangeMin').value);
+      let max = parseInt(document.getElementById('ageRangeMax').value);
+      if (min > max) [min, max] = [max, min]; // Swap if needed
+      document.getElementById('ageRangeMin').value = min;
+      document.getElementById('ageRangeMax').value = max;
+      document.getElementById('ageRangeVal').textContent = `${min} - ${max}`;
+    }
+    updateAgeRange(); // Initialize on load
+
+    function setPersonalExpense() {
+      const monthlyIncome = parseFloat(document.getElementById('monthlyIncome').value);
+      const personalExpense = Math.round(monthlyIncome * 0.3);
+      const personalExpenseInput = document.getElementById('personalExpenseInput');
+      if (personalExpenseInput) {
+        personalExpenseInput.value = personalExpense;
+      }
+    }
+
+    // Set initial value for personal expense on page load
+    setPersonalExpense();
+
+    // Initialize slider values for annual growth sliders
+    document.getElementById('incomeGrowthVal').textContent = document.getElementById('incomeGrowth').value;
+    document.getElementById('investmentGrowthVal').textContent = document.getElementById('investmentGrowth').value;
+
+    // Helper to format numbers in Indian system (K, Lakh, Cr)
+    function formatINR(num) {
+      num = Math.round(num);
+      if (num >= 1e7) {
+        return (num / 1e7).toFixed(2).replace(/\.00$/, '') + ' Cr';
+      } else if (num >= 1e5) {
+        return (num / 1e5).toFixed(2).replace(/\.00$/, '') + ' L';
+      } else if (num >= 1e3) {
+        return (num / 1e3).toFixed(2).replace(/\.00$/, '') + ' K';
+      } else {
+        return num.toLocaleString('en-IN');
+      }
+    }
+  </script>
+</body>
+</html>
